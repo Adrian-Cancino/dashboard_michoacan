@@ -49,29 +49,19 @@
   async function cargarDatos() {
     try {
       debugInfo = '';
-      console.log('═══════════════════════════════════════════');
-      console.log('🔄 Cargando datos del mapa...');
-      console.log('📡 URL SupabaseMapa:', supabaseMapa.supabaseUrl);
 
-      // ── PASO 1: probar count ──
-      console.log('🔄 [1/4] Test count en elecciones_michoacan_gubernatura_2024...');
       const { count, error: countError } = await supabaseMapa
         .from('elecciones_michoacan_gubernatura_2024')
         .select('*', { count: 'exact', head: true });
 
-      console.log('📊 Count:', { count, error: countError });
       if (countError) throw countError;
-      console.log(`✅ Tabla tiene ${count} registros`);
 
       if (count === 0) {
-        console.warn('⚠️ Tabla vacia');
         debugInfo = 'consulta count = 0. La tabla elecciones_michoacan_gubernatura_2024 esta vacia.';
         loading = false;
         return;
       }
 
-      // ── PASO 2: consultar columnas ──
-      console.log('🔄 [2/4] Consultando datos...');
       const columns = [
         'seccion',
         '"Distrito"',
@@ -83,13 +73,9 @@
         ...PARTY_COLUMNS
       ].join(',');
 
-      console.log('📋 Columnas solicitadas:', columns);
-
       const { data: resultados, error: resultadosError } = await supabaseMapa
         .from('elecciones_michoacan_gubernatura_2024')
         .select(columns);
-
-      console.log('📊 Respuesta:', { length: resultados?.length, error: resultadosError });
 
       if (resultadosError) throw resultadosError;
 
@@ -98,14 +84,6 @@
         loading = false;
         return;
       }
-
-      console.log('✅ Filas recibidas:', resultados.length);
-      console.log('📋 Primer fila (raw):', resultados[0]);
-      console.log('📋 Keys primera fila:', Object.keys(resultados[0]));
-      console.log('📋 coordenadas ejemplo:', resultados[0].coordenadas?.substring(0, 100));
-
-      // ── PASO 3: agrupar por seccion ──
-      console.log('🔄 [3/4] Agrupando por seccion...');
 
       const seccionMap = new Map();
       const distritosSet = new Set();
@@ -116,7 +94,6 @@
       resultados.forEach((row, i) => {
         const seccion = normalizarSeccion(getValue(row, 'seccion'));
         if (!seccion) {
-          if (i < 5) console.log(`⚠️ Fila ${i}: sin seccion`, row);
           filasSinSeccion++;
           return;
         }
@@ -179,40 +156,6 @@
         entry.abstencionSeccion = Math.max(0, entry.listaNominal - entry.votosTotales);
       }
 
-      console.log('📊 Resumen agrupacion:', {
-        totalFilas: resultados.length,
-        seccionesUnicas: seccionMap.size,
-        distritosUnicos: distritosSet.size,
-        municipiosUnicos: municipiosSet.size,
-        filasSinSeccion,
-        filasSinDistrito
-      });
-
-      // ── PASO 4: validar coordenadas ──
-      console.log('🔄 [4/4] Validando coordenadas...');
-      let conCoords = 0;
-      let sinCoords = 0;
-      let coordsValidasGeoJSON = 0;
-
-      for (const [seccion, row] of seccionMap) {
-        if (row.coordenadas) {
-          conCoords++;
-          try {
-            const parsed = JSON.parse(
-              typeof row.coordenadas === 'string' ? row.coordenadas : JSON.stringify(row.coordenadas)
-            );
-            if (parsed?.geometry || parsed?.type) {
-              coordsValidasGeoJSON++;
-            }
-          } catch {
-            if (conCoords <= 3) console.log(`⚠️ Seccion ${seccion}: coordenadas no son GeoJSON valido:`, row.coordenadas?.substring(0, 80));
-          }
-        } else {
-          sinCoords++;
-        }
-      }
-      console.log('📊 Coordenadas:', { conCoords, sinCoords, coordsValidasGeoJSON });
-
       seccionesProcesadas = seccionMap;
       allData = Array.from(seccionMap.values());
 
@@ -222,19 +165,9 @@
       resultadosData = allData;
       calcularMaxVotos();
 
-      console.log('✅ Carga completada:', {
-        secciones: allData.length,
-        distritos: distritosDisponibles.length,
-        municipios: municipios.length,
-        maxVotos: maxVotosCache
-      });
-      console.log('═══════════════════════════════════════════');
-
       loading = false;
     } catch (e) {
       console.error('💥 Error cargando datos del mapa:', e);
-      console.error('📄 Mensaje:', e.message);
-      console.error('🔍 Detalles:', JSON.stringify(e, Object.getOwnPropertyNames(e)));
       error = e.message;
       loading = false;
     }
@@ -565,49 +498,6 @@
       </div>
     </div>
   </div>
-
-  <!--
-  <section class="results-section">
-    <h2 class="section-title">
-      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="section-icon">
-        <path d="M17 21v-2a4 4 0 00-4-4H7a4 4 0 00-4 4v2"/><circle cx="10" cy="7" r="4"/>
-      </svg>
-      Afiliados por Partido
-    </h2>
-    <div class="affiliation-cards">
-      <div class="aff-card aff-card--morena">
-        <div class="aff-card-bar"></div>
-        <span class="aff-card-label">PT-MORENA</span>
-        <span class="aff-card-value">{formatNumber(votosPorPartido['PT-MORENA'])}</span>
-      </div>
-      <div class="aff-card aff-card--alianza">
-        <div class="aff-card-bar"></div>
-        <span class="aff-card-label">PAN-PRI-PRD</span>
-        <span class="aff-card-value">{formatNumber(votosPorPartido['PAN-PRI-PRD'])}</span>
-      </div>
-      <div class="aff-card aff-card--pvem">
-        <div class="aff-card-bar"></div>
-        <span class="aff-card-label">PVEM</span>
-        <span class="aff-card-value">{formatNumber(votosPorPartido.PVEM)}</span>
-      </div>
-      <div class="aff-card aff-card--mc">
-        <div class="aff-card-bar"></div>
-        <span class="aff-card-label">MC</span>
-        <span class="aff-card-value">{formatNumber(votosPorPartido.MC)}</span>
-      </div>
-      <div class="aff-card aff-card--pan">
-        <div class="aff-card-bar"></div>
-        <span class="aff-card-label">PAN</span>
-        <span class="aff-card-value">{formatNumber(votosPorPartido.PAN)}</span>
-      </div>
-      <div class="aff-card aff-card--pri">
-        <div class="aff-card-bar"></div>
-        <span class="aff-card-label">PRI</span>
-        <span class="aff-card-value">{formatNumber(votosPorPartido.PRI)}</span>
-      </div>
-    </div>
-  </section>
-  -->
 </div>
 
 <style>
@@ -969,66 +859,9 @@
     line-height: 1.1;
   }
 
-  .affiliation-cards {
-    display: grid;
-    grid-template-columns: repeat(6, 1fr);
-    gap: 16px;
-  }
-
-  .aff-card {
-    background: var(--color-bg);
-    border-radius: var(--radius-md);
-    padding: 20px 16px;
-    text-align: center;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
-    position: relative;
-    overflow: hidden;
-    transition: transform 0.2s;
-  }
-
-  .aff-card:hover {
-    transform: translateY(-2px);
-  }
-
-  .aff-card-bar {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 4px;
-  }
-
-  .aff-card--morena .aff-card-bar { background: #6B1D2A; }
-  .aff-card--alianza .aff-card-bar { background: #0420a4; }
-  .aff-card--pvem .aff-card-bar { background: #00A650; }
-  .aff-card--mc .aff-card-bar { background: #FF6B00; }
-  .aff-card--pan .aff-card-bar { background: #1E40AF; }
-  .aff-card--pri .aff-card-bar { background: #00843D; }
-
-  .aff-card-label {
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--color-text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-
-  .aff-card-value {
-    font-family: var(--font-heading);
-    font-size: 26px;
-    font-weight: 800;
-    color: var(--color-primary);
-  }
-
   @media (max-width: 1200px) {
     .results-cards {
       grid-template-columns: repeat(4, 1fr);
-    }
-    .affiliation-cards {
-      grid-template-columns: repeat(3, 1fr);
     }
   }
 
@@ -1076,12 +909,6 @@
     }
     .result-card-value {
       font-size: 18px;
-    }
-    .affiliation-cards {
-      grid-template-columns: repeat(2, 1fr);
-    }
-    .aff-card-value {
-      font-size: 22px;
     }
   }
 </style>
