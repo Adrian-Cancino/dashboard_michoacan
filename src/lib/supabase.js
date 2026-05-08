@@ -4,7 +4,7 @@ import {
   PUBLIC_SUPABASE_ANON_KEY,
   PUBLIC_SUPABASE_URL_MAP,
   PUBLIC_SUPABASE_ANON_MAP
-} from '$env/static/public';
+} from '$env/dynamic/public';
 
 export const supabase = createClient(PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY);
 export const supabaseMapa = createClient(PUBLIC_SUPABASE_URL_MAP, PUBLIC_SUPABASE_ANON_MAP);
